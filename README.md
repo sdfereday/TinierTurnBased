@@ -1,2 +1,0 @@
-# TinierTurnBased
-Created with CodeSandbox
