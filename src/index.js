@@ -2,11 +2,12 @@ import { manualLoop } from "./utils/gameloop";
 import { createTurnIterator } from "./utils/turnGenerator";
 import queueStateMachine from "./fsm/queueStateMachine";
 import actor from "./entities/actor";
+import aiActor from "./entities/aiActor";
 
 const actorQueueState = queueStateMachine();
 
 const actorSam = actor("Sam", actorQueueState);
-const actorGnoll = actor("Gnoll", actorQueueState);
+const actorGnoll = aiActor("Gnoll", actorQueueState);
 const actors = [actorSam, actorGnoll];
 
 const turnIterator = createTurnIterator(actors);
