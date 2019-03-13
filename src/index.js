@@ -6,9 +6,9 @@ import aiActor from "./entities/aiActor";
 
 const actorQueueState = queueStateMachine();
 
-const actorSam = actor("Sam", actorQueueState);
 const actorGnoll = aiActor("Gnoll", actorQueueState);
-const actors = [actorSam, actorGnoll];
+const actorSam = actor("Sam", actorQueueState);
+const actors = [actorGnoll, actorSam];
 
 const turnIterator = createTurnIterator(actors);
 
