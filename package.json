@@ -1,7 +1,7 @@
 {
   "name": "tinier-turn-based",
   "version": "1.0.0",
-  "description": "",
+  "description": "A self-assigned challenge to create a very small turn-based battle system that makes sense.",
   "main": "index.html",
   "scripts": {
     "start": "parcel index.html --open",
