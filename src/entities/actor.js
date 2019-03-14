@@ -1,8 +1,6 @@
 import { guid } from "../helpers/dataHelpers";
 import normalStateMachine from "../fsm/normalStateMachine";
-import onAttack from "../states/onAttack";
-import onHit from "../states/onHit";
-import onCounter from "../states/onCounter";
+import stateRegistry from "../states/stateRegistry";
 
 export default (name, globalFSM, _id = guid(), _target = null) => {
   const internalFSM = normalStateMachine();
@@ -17,6 +15,7 @@ export default (name, globalFSM, _id = guid(), _target = null) => {
     decide: () => {
       console.log(name + " is deciding what to do...");
 
+      const onAttack = stateRegistry.get("onAttack");
       const attackState = onAttack({
         ownerId: _id,
         target: _target,
@@ -28,6 +27,7 @@ export default (name, globalFSM, _id = guid(), _target = null) => {
     hit: ({ damage, originData }) => {
       console.log(name + " got a hit from " + originData.name + ".");
 
+      const onHit = stateRegistry.get("onHit");
       const hitState = onHit({
         ownerId: _id,
         name,
@@ -35,6 +35,7 @@ export default (name, globalFSM, _id = guid(), _target = null) => {
           onExit: () => {
             console.log(name + " decided to counter " + originData.name + ".");
 
+            const onCounter = stateRegistry.get("onCounter");
             const counterState = onCounter({
               ownerId: _id,
               target: _target,
@@ -53,6 +54,7 @@ export default (name, globalFSM, _id = guid(), _target = null) => {
         name + " got a counter attack hit from " + originData.name + "."
       );
 
+      const onHit = stateRegistry.get("onHit");
       const hitState = onHit({
         ownerId: _id,
         name

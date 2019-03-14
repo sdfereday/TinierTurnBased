@@ -1,99 +1,21 @@
 import { guid } from "../helpers/dataHelpers";
-import { first } from "../helpers/arrayHelpers";
-import { clamp } from "../helpers/numberHelpers";
 import normalStateMachine from "../fsm/normalStateMachine";
-import onAttack from "../states/onAttack";
-import onHit from "../states/onHit";
-import onCounter from "../states/onCounter";
-import onBreak from "../states/onBreak";
-
-// Could be any old thing relating to this entity (think gambits)
-const gambitMap = [
-  {
-    gambitId: "UseAttack", // Just an id for this gambit, no critical
-    statId: "hp", // Must match stats object key
-    stateOnTrue: "onAttack", // Must match the id of needed state
-    priority: 3,
-    condition: (current, ceil) => current >= ceil // Called by logic parser
-  },
-  {
-    gambitId: "UsePotion",
-    statId: "hp",
-    stateOnTrue: "onPotion",
-    priority: 2,
-    condition: (current, ceil) => current < ceil
-  },
-  {
-    gambitId: "UseAntidote",
-    statId: "poison",
-    stateOnTrue: "onAntidote",
-    priority: 1,
-    condition: currentAilment => currentAilment === "poison"
-  }
-];
-
-const statRegistry = {
-  status: (effectiveStatuses = []) => {
-    let _currentStatus = null;
-    return {
-      setStatus: type => effectiveStatuses.find(status => status.type === type),
-      value: () => (_currentStatus ? _currentStatus.type : null)
-    };
-  },
-  hp: ceil => {
-    let _current = ceil;
-    let _ceil = ceil;
-    let _min = 0;
-    return {
-      id: "hp",
-      value: () => _current,
-      ceil: () => _ceil,
-      increaseValue: value => {
-        _current = clamp(_current + value, _min, _ceil);
-      },
-      decreaseValue: value => {
-        _current = clamp(_current - value, _min, _ceil);
-      }
-    };
-  }
-};
-
-const doStatLogic = (stats, gambits) => {
-  const result = first(
-    gambits
-      .sort((a, b) => a.priority - b.priority)
-      .filter(({ condition, statId }) => {
-        const currentStat = stats.find(({ id }) => id === statId);
-        if (currentStat) {
-          // This won't work for status since it doesn't match the key.
-          console.log(currentStat.value());
-        }
-        return (
-          currentStat &&
-          condition(
-            currentStat.value(),
-            currentStat.ceil ? currentStat.ceil() : null
-          )
-        );
-      })
-  );
-
-  return result ? result.stateOnTrue : null;
-};
+import stateRegistry from "../states/stateRegistry";
+import { genericGambit } from "../ai/gambits";
+import { doStatLogic } from "../ai/functions";
+import stats from "../data/stats";
+import { poison } from "../data/statuses";
 
 export default (name, globalFSM, _id = guid(), _target = null) => {
-  // Single source of truth for entities stats
-  const hp = statRegistry.hp(100);
-  const currentStatus = statRegistry.status([
-    {
-      type: "poison",
-      dmg: 1,
-      ticks: 3
-    }
-  ]);
+  // TODO: Ensure you're getting individual instances of stats, it may not
+  // be the case if 'stats' is just being exported as an object.
+  const hp = stats.hp(100);
+  // Statuses that this entity are susceptible to a pushed here.
+  const susceptibleStatuses = stats.status([poison]);
 
-  // To test
-  currentStatus.setStatus("poison");
+  // You'd usually set this on hit if the thing has a latent effect on it
+  susceptibleStatuses.setStatus("poison");
+  // ...
 
   // Internal fsm handles all personal actions (animations, etc)
   const internalFSM = normalStateMachine();
@@ -106,41 +28,27 @@ export default (name, globalFSM, _id = guid(), _target = null) => {
     },
     update: () => internalFSM.update(),
     decide: () => {
+      // So you can actually swap out different gambits depending on the mode
+      // the entity is in. You could potentially have a gambit that specifies
+      // gambits to use.
       console.log(name + " is deciding what to do...");
-      const stateResult = doStatLogic([hp, currentStatus], gambitMap);
+      const stateResult = doStatLogic([hp, susceptibleStatuses], genericGambit);
+      const chosenState = stateRegistry.get(stateResult);
+      console.log("Chose state:", stateResult);
 
-      console.log(stateResult);
-
-      switch (stateResult) {
-        case "onPoisoned":
-          globalFSM.push(
-            onBreak({
-              ownerId: _id,
-              name
-            })
-          );
-          break;
-        // case "onAttack":
-        //   globalFSM.push(
-        //     onAttack({
-        //       ownerId: _id,
-        //       target: _target,
-        //       name
-        //     })
-        //   );
-        //   break;
-        default:
-          globalFSM.push(
-            onBreak({
-              ownerId: _id,
-              name
-            })
-          );
-      }
+      // Using this methods 'assumes' that all states take the same sort of data.
+      globalFSM.push(
+        chosenState({
+          ownerId: _id,
+          target: _target,
+          name
+        })
+      );
     },
     hit: ({ damage, originData }) => {
       console.log(name + " got a hit from " + originData.name + ".");
 
+      const onHit = stateRegistry.get("onHit");
       const hitState = onHit({
         ownerId: _id,
         name,
@@ -148,6 +56,7 @@ export default (name, globalFSM, _id = guid(), _target = null) => {
           onExit: () => {
             console.log(name + " decided to counter " + originData.name + ".");
 
+            const onCounter = stateRegistry.get("onCounter");
             const counterState = onCounter({
               ownerId: _id,
               target: _target,
@@ -166,6 +75,7 @@ export default (name, globalFSM, _id = guid(), _target = null) => {
         name + " got a counter attack hit from " + originData.name + "."
       );
 
+      const onHit = stateRegistry.get("onHit");
       const hitState = onHit({
         ownerId: _id,
         name
